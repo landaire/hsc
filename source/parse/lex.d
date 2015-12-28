@@ -54,10 +54,20 @@ enum ItemType {
   Tilde,
 }
 
+struct Position {
+  size_t line;
+  size_t col;
+  size_t index;
+
+  string toString() {
+    return format("%d:%d", line, col);
+  }
+}
+
 struct Item {
   ItemType type;
   string value;
-  size_t position;
+  Position position;
 
   string toString() {
     switch (type) {
@@ -66,13 +76,12 @@ struct Item {
     case ItemType.Error:
       return value;
     default:
-      return format("%s - %s: %d", type, value, position);
+      return format("%s \"%s\": line %s", type, value, position);
     }
   }
 }
 
 class Lexer {
-
   // used for debugging
   immutable(string) name;
   string input;
@@ -97,14 +106,13 @@ class Lexer {
   }
 
   void addItem(Item item) {
-    stdout.writeln("adding item");
     items ~= item;
 
     start = position;
   }
 
   void addItem(ItemType item) {
-    addItem(Item(item, input[start..position], start));
+    addItem(Item(item, input[start..position], currentPosition()));
   }
 
   void ignore() {
@@ -150,20 +158,15 @@ class Lexer {
   // Lexes abitrary text until we hit an opening paren
   void lexText() {
   loop: while (true) {
-      stdout.writeln("in text");
-
       switch (next()) {
       case comment:
-        stdout.writeln("comment");
         state = &lexComment;
         return;
       case openParen:
-        stdout.writeln("open paren");
         // addItem(ItemType.Text);
         state = &lexOpenParen;
         return;
       case eof:
-        stdout.writeln("eof");
         state = null;
         return;
       default:
@@ -176,8 +179,6 @@ class Lexer {
     // consume characters until we hit EOL
     char nextc;
     while(true) {
-      stdout.writeln("in comment");
-
       nextc = next();
 
       if (nextc == eof) {
@@ -229,7 +230,6 @@ class Lexer {
     // and that can be recursive
 
     immutable(char) nextChar = next();
-    stdout.writeln("next char ", nextChar);
     if (nextChar == comment) {
       state = &lexComment;
       return;
@@ -266,7 +266,6 @@ class Lexer {
   }
 
   void lexIdentifier() {
-    stdout.writeln("in identifier");
     while(true) {
       auto nextChar = next();
 
@@ -276,7 +275,6 @@ class Lexer {
         backup();
 
         string word = input[start..position];
-        stdout.writeln(word);
 
         // do something with word later
         addItem(ItemType.Identifier);
@@ -289,14 +287,25 @@ class Lexer {
   }
 
   void error(string message) {
-    addItem(Item(ItemType.Error, message, start));
+    addItem(Item(ItemType.Error, message, currentPosition()));
 
     state = null;
   }
 
-  bool isEndOfLine(char c) {
-    stdout.writeln(cast(int)c);
+  Position currentPosition() {
+    import std.range : retro;
+    import std.algorithm.searching : count, countUntil;
 
+    auto charsUntilPosition = input[0..position];
+
+    size_t lines = count(charsUntilPosition, '\n');
+    size_t indexOfLastLinebreak = countUntil(charsUntilPosition, '\n');
+
+    // countUntil is 1-indexed so we -1 since columns should be 0-indexed
+    return Position(lines, (start - indexOfLastLinebreak) - 1, start);
+  }
+
+  bool isEndOfLine(char c) {
     return c == '\r' || c == '\n';
   }
 
@@ -317,19 +326,19 @@ class Lexer {
 
     std.stdio.stdout.writeln(lex.items);
     assert(lex.items == [
-                         Item(ItemType.OpenParen, "(", 10),
-                         Item(ItemType.Identifier, "foo", 11),
-                         Item(ItemType.Space, " ", 14),
-                         Item(ItemType.OpenParen, "(", 15),
-                         Item(ItemType.Identifier, "+", 16),
-                         Item(ItemType.Space, " ", 17),
-                         Item(ItemType.OpenParen, "(", 18),
-                         Item(ItemType.Identifier, "x", 19),
-                         Item(ItemType.CloseParen, ")", 20),
-                         Item(ItemType.Space, " ", 21),
-                         Item(ItemType.Identifier, "y", 22),
-                         Item(ItemType.CloseParen, ")", 23),
-                         Item(ItemType.CloseParen, ")", 24),
+                         Item(ItemType.OpenParen, "(", Position(1, 0, 10)),
+                         Item(ItemType.Identifier, "foo", Position(1, 1, 11)),
+                         Item(ItemType.Space, " ", Position(1, 4, 14)),
+                         Item(ItemType.OpenParen, "(", Position(1, 5, 15)),
+                         Item(ItemType.Identifier, "+", Position(1, 6, 16)),
+                         Item(ItemType.Space, " ", Position(1, 7, 17)),
+                         Item(ItemType.OpenParen, "(", Position(1, 8, 18)),
+                         Item(ItemType.Identifier, "x", Position(1, 9, 19)),
+                         Item(ItemType.CloseParen, ")", Position(1, 10, 20)),
+                         Item(ItemType.Space, " ", Position(1, 11, 21)),
+                         Item(ItemType.Identifier, "y", Position(1, 12, 22)),
+                         Item(ItemType.CloseParen, ")", Position(1, 13, 23)),
+                         Item(ItemType.CloseParen, ")", Position(1, 14, 24)),
                          ]);
   }
 }
