@@ -301,7 +301,7 @@ class Lexer {
   }
 
   bool isSpace(char c) {
-    return c == '\t' || c == ' ';
+    return c == '\t' || c == ' ' || isEndOfLine(c);
   }
 
   bool isIdentifierChar(char c) {
