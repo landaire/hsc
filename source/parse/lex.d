@@ -174,11 +174,17 @@ class Lexer {
 
   void lexComment() {
     // consume characters until we hit EOL
-    while (!isEndOfLine(peek())) {
+    char nextc;
+    while(true) {
       stdout.writeln("in comment");
-      if (next() == eof) {
+
+      nextc = next();
+
+      if (nextc == eof) {
         state = null;
         return;
+      } else if (isEndOfLine(nextc)) {
+        break;
       }
     }
 
@@ -291,7 +297,6 @@ class Lexer {
   bool isEndOfLine(char c) {
     stdout.writeln(cast(int)c);
 
-
     return c == '\r' || c == '\n';
   }
 
@@ -311,5 +316,20 @@ class Lexer {
     lex.run();
 
     std.stdio.stdout.writeln(lex.items);
+    assert(lex.items == [
+                         Item(ItemType.OpenParen, "(", 10),
+                         Item(ItemType.Identifier, "foo", 11),
+                         Item(ItemType.Space, " ", 14),
+                         Item(ItemType.OpenParen, "(", 15),
+                         Item(ItemType.Identifier, "+", 16),
+                         Item(ItemType.Space, " ", 17),
+                         Item(ItemType.OpenParen, "(", 18),
+                         Item(ItemType.Identifier, "x", 19),
+                         Item(ItemType.CloseParen, ")", 20),
+                         Item(ItemType.Space, " ", 21),
+                         Item(ItemType.Identifier, "y", 22),
+                         Item(ItemType.CloseParen, ")", 23),
+                         Item(ItemType.CloseParen, ")", 24),
+                         ]);
   }
 }
