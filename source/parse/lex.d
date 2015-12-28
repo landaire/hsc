@@ -317,7 +317,7 @@ class Lexer {
     import core.stdc.ctype : isalnum;
     import std.algorithm.searching : canFind;
 
-    return canFind(['+', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
+    return canFind(['!', '/', '+', '=', '*', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
   }
 
   unittest {
