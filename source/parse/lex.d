@@ -30,9 +30,10 @@ enum TokenType {
   Number,
   Space,
   Text,
-
   OpenParen,
   CloseParen,
+  Bool,
+  ParamSeparator,
 }
 
 /**
@@ -83,7 +84,9 @@ class Lexer {
     eof = cast(char)-1,
     openParen = '(',
     closeParen = ')',
-    comment = ';'
+    comment = ';',
+    quote = '"',
+    paramSeparator = ',',
   };
 
   this(string name, string input) {
@@ -159,6 +162,8 @@ class Lexer {
    * script
    */
   void lexText() {
+    log("lexing text");
+
   loop: while (true) {
       switch (next()) {
       case comment:
@@ -180,6 +185,8 @@ class Lexer {
    * Positions the buffer to wherever the first non-CR/LF character is
    */
   void skipEOL() {
+    log("skipping EOL");
+
     char nextc = next();
     while (nextc == '\r' || nextc == '\n') {
       nextc = next();
@@ -194,6 +201,8 @@ class Lexer {
    * Lexes comments and does not emit any tokens
    */
   void lexComment() {
+    log("lexing comment");
+
     // consume characters until we hit EOL
     char nextc;
     while(true) {
@@ -218,6 +227,8 @@ class Lexer {
   }
 
   void lexOpenParen() {
+    log("lexing open paren");
+
     addItem(TokenType.OpenParen);
     parenDepth++;
 
@@ -232,6 +243,8 @@ class Lexer {
   }
 
   void lexCloseParen() {
+    log("lexing closing paren");
+
     addItem(TokenType.CloseParen);
     parenDepth--;
 
@@ -262,8 +275,19 @@ class Lexer {
     } else if (nextChar == closeParen) {
       state = &lexCloseParen;
       return;
+    } else if (isNumber(nextChar)) {
+      state = &lexNumber;
+      return;
     } else if (isIdentifierChar(nextChar)) {
       state = &lexIdentifier;
+      return;
+    } else if (nextChar == quote) {
+      state = &lexString;
+      return;
+    } else if (nextChar == paramSeparator) {
+      addItem(TokenType.ParamSeparator);
+
+      state = &lexInsideParens;
       return;
     } else if (nextChar == eof) {
       error("unclosed open paren");
@@ -273,6 +297,8 @@ class Lexer {
   }
 
   void lexSpace() {
+    log("lexing space");
+
     while (isSpace(peek())) {
       if (next() == eof) {
         state = null;
@@ -286,6 +312,8 @@ class Lexer {
   }
 
   void lexIdentifier() {
+    log("lexing identifier");
+
     while(true) {
       auto nextChar = next();
 
@@ -296,12 +324,43 @@ class Lexer {
 
         string word = input[start..position];
 
-        // do something with word later
-        addItem(TokenType.Identifier);
+        if (word == "true" || word == "false") {
+          addItem(TokenType.Bool);
+        } else {
+          // do something with word later
+          addItem(TokenType.Identifier);
+        }
 
         break;
       }
     }
+
+    state = &lexInsideParens;
+  }
+
+  void lexString() {
+    log("lexing string");
+
+    while(next() != quote) {
+      // do nothing, just consume
+    }
+
+    addItem(TokenType.Text);
+
+    state = &lexInsideParens;
+  }
+
+  void lexNumber() {
+    log("lexing number");
+
+    char nextc = next();
+    while (isNumber(nextc) || nextc == '.') {
+      nextc = next();
+    }
+
+    backup();
+
+    addItem(TokenType.Number);
 
     state = &lexInsideParens;
   }
