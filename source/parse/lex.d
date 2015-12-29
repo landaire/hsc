@@ -45,7 +45,7 @@ struct Position {
   size_t index;
 
   string toString() {
-    return format("%d:%d", line, col);
+    return format("%d:%d offset %d", line, col, index);
   }
 }
 
@@ -81,6 +81,7 @@ class Lexer {
   size_t parenDepth = 0; // depth of parenthesis
   size_t lineNum = 1;
   size_t lineNumIndex = 0;
+  size_t lastLineNumIndex = 0;
 
   enum : char {
     eof = cast(char)-1,
@@ -113,7 +114,38 @@ class Lexer {
    * Adds an Token to the lexed items list
    */
   void addItem(TokenType item) {
-    addItem(Token(item, input[start..position], currentPosition()));
+    import std.algorithm.searching : canFind;
+
+    string value;
+    auto valueSlice = input[start..position];
+    auto tokenPosition = currentPosition();
+
+    if (item == TokenType.Space) {
+      // this avoids something like <SPC><SPC><CR><LF><SPC> having
+      // an integer underflow since the last linefeed would have been marked as part of that buffer
+      if (canFind(valueSlice, '\n')) {
+        tokenPosition.line--;
+        tokenPosition.col = start - lastLineNumIndex;
+      }
+
+      foreach (c; valueSlice) {
+        final switch (c) {
+        case ' ':
+          value ~= "<SPC>";
+          break;
+        case '\r':
+          value ~= "<CR>";
+          break;
+        case '\n':
+          value ~= "<LF>";
+          break;
+        }
+      }
+    } else {
+      value = valueSlice;
+    }
+
+    addItem(Token(item, value, tokenPosition));
   }
 
   /**
@@ -154,7 +186,10 @@ class Lexer {
    */
   char peek() {
     auto n = next();
-    backup();
+
+    if (n != eof) {
+      backup();
+    }
 
     return n;
   }
@@ -173,21 +208,24 @@ class Lexer {
   void lexText() {
     log("lexing text");
 
-  loop: while (true) {
-      switch (next()) {
-      case comment:
+    auto nextc = next();
+
+    while (nextc != eof) {
+      if (nextc == comment) {
         state = &lexComment;
         return;
-      case openParen:
+      } else if (nextc == openParen) {
         state = &lexOpenParen;
         return;
-      case eof:
-        state = null;
+      } else if (isSpace(nextc)) {
+        state = &lexSpace;
         return;
-      default:
-        break;
       }
+
+      nextc = next();
     }
+
+    state = null;
   }
 
   /**
@@ -196,21 +234,26 @@ class Lexer {
   void skipEOL() {
     log("skipping EOL");
 
+    // backup so we can consume the linebreak that whatever lex method read. this is so we can
+    // identify if it's a CR or LF and mark EOL if it's LF
     backup();
 
     char nextc = next();
     while (nextc == '\r' || nextc == '\n') {
       if (nextc == '\n') {
-        lineNum++;
-        lineNumIndex = position;
+        markEOL();
       }
 
       nextc = next();
     }
 
     backup();
+  }
 
-    ignore();
+  void markEOL() {
+    lineNum++;
+    lastLineNumIndex = lineNumIndex;
+    lineNumIndex = position;
   }
 
   /**
@@ -254,12 +297,15 @@ class Lexer {
       return;
     }
 
-
     state = &lexInsideParens;
   }
 
   void lexCloseParen() {
     log("lexing closing paren");
+
+    if (parenDepth == 0) {
+      error("unexpected " ~ TokenType.CloseParen);
+    }
 
     addItem(TokenType.CloseParen);
     parenDepth--;
@@ -285,10 +331,6 @@ class Lexer {
       state = &lexComment;
       return;
     } else if (isSpace(nextChar)) {
-      if (isEndOfLine(nextChar)) {
-        skipEOL();
-      }
-
       state = &lexSpace;
       return;
     } else if (nextChar == openParen) {
@@ -322,15 +364,20 @@ class Lexer {
     log("lexing space");
 
     while (isSpace(peek())) {
-      if (next() == eof) {
-        state = null;
-        return;
+      auto nextc = next();
+
+      if (nextc == '\n') {
+        skipEOL();
       }
     }
 
     addItem(TokenType.Space);
 
-    state = &lexInsideParens;
+    if (parenDepth == 0) {
+      state = &lexText;
+    } else {
+      state = &lexInsideParens;
+    }
   }
 
   void lexIdentifier() {
@@ -430,14 +477,14 @@ class Lexer {
     assert(lex.items == [
                          Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
                          Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
-                         Token(TokenType.Space, " ", Position(2, 4, 14)),
+                         Token(TokenType.Space, "<SPC>", Position(2, 4, 14)),
                          Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
                          Token(TokenType.Identifier, "+", Position(2, 6, 16)),
-                         Token(TokenType.Space, " ", Position(2, 7, 17)),
+                         Token(TokenType.Space, "<SPC>", Position(2, 7, 17)),
                          Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
                          Token(TokenType.Identifier, "x", Position(2, 9, 19)),
                          Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
-                         Token(TokenType.Space, " ", Position(2, 11, 21)),
+                         Token(TokenType.Space, "<SPC>", Position(2, 11, 21)),
                          Token(TokenType.Identifier, "y", Position(2, 12, 22)),
                          Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
                          Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
