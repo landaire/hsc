@@ -163,7 +163,6 @@ class Lexer {
         state = &lexComment;
         return;
       case openParen:
-        // addItem(ItemType.Text);
         state = &lexOpenParen;
         return;
       case eof:
@@ -173,6 +172,17 @@ class Lexer {
         break;
       }
     }
+  }
+
+  void skipEOL() {
+    char nextc = next();
+    while (nextc == '\r' || nextc == '\n') {
+      nextc = next();
+    }
+
+    backup();
+
+    ignore();
   }
 
   void lexComment() {
@@ -185,6 +195,7 @@ class Lexer {
         state = null;
         return;
       } else if (isEndOfLine(nextc)) {
+        skipEOL();
         break;
       }
     }
@@ -199,14 +210,15 @@ class Lexer {
   }
 
   void lexOpenParen() {
+    addItem(ItemType.OpenParen);
+    parenDepth++;
+
     // check for a comment since these can go here
     if (peek() == comment) {
       state = &lexComment;
       return;
     }
 
-    addItem(ItemType.OpenParen);
-    parenDepth++;
 
     state = &lexInsideParens;
   }
@@ -317,7 +329,7 @@ class Lexer {
     import core.stdc.ctype : isalnum;
     import std.algorithm.searching : canFind;
 
-    return canFind(['!', '/', '+', '=', '*', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
+    return canFind(['_', '!', '/', '+', '=', '*', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
   }
 
   unittest {
