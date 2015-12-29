@@ -150,6 +150,28 @@ class Lexer {
     }
   }
 
+  unittest {
+    Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))");
+    lex.run();
+
+    std.stdio.stdout.writeln(lex.items);
+    auto items = [
+                         Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
+                         Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
+                         Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
+                         Token(TokenType.Identifier, "+", Position(2, 6, 16)),
+                         Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
+                         Token(TokenType.Identifier, "x", Position(2, 9, 19)),
+                         Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
+                         Token(TokenType.Identifier, "y", Position(2, 12, 22)),
+                         Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
+                         Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
+                  ];
+
+    assert(lex.items.length == items.length);
+    assert(lex.items == items);
+  }
+
   /**
    * Consumes and returns the next character in the buffer. Returns EOF if we've gone outside the buffer
    */
@@ -429,50 +451,65 @@ class Lexer {
     return Position(lineNum, (start - lineNumIndex), start);
   }
 
-  bool isEndOfLine(char c) {
+  static pure bool isEndOfLine(char c) {
     return c == '\r' || c == '\n';
   }
 
-  bool isSpace(char c) {
-    return c == '\t' || c == ' ' || isEndOfLine(c);
+  static pure bool isSpace(char c) {
+    import std.ascii : isWhite;
+
+    return isWhite(c);
   }
 
-  bool isIdentifierChar(char c) {
+  unittest {
+    auto spaces = ['\t', '\n', '\r', ' '];
+
+    foreach (space; spaces) {
+      assert(isSpace(space));
+    }
+
+    assert(!isSpace('!'));
+    assert(!isSpace('x'));
+  }
+
+  static pure bool isIdentifierChar(char c) {
     import core.stdc.ctype : isalnum;
     import std.algorithm.searching : canFind;
+    import std.ascii : isAlphaNum;
 
-    return canFind(['_', '!', '/', '+', '=', '*', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
+    return canFind(['_', '!', '/', '+', '=', '*', '-', '<', '>'], c) || isAlphaNum(c);
   }
 
-  bool isNumber(char c) {
+  unittest {
+    string[] validIdentifiers = ["foo", "_foo_", "!foo", "-fo", "foo!", "+", "=", "*", "/", "!", "<", ">", "<=", ">="];
+
+    foreach (identifier; validIdentifiers) {
+      foreach (c; identifier) {
+        assert(isIdentifierChar(c));
+      }
+    }
+
+    assert(!isIdentifierChar('#'));
+    assert(!isIdentifierChar('^'));
+    assert(!isIdentifierChar('\"'));
+    assert(!isIdentifierChar('`'));
+  }
+
+  static pure bool isNumber(char c) {
     return c >= '0' && c <= '9';
+  }
+
+  unittest {
+    import std.conv;
+
+    foreach (i; 0..9) {
+      assert(isNumber(to!string(i)[0]));
+    }
   }
 
   void log(R)(R t) {
     // import std.stdio : stdout;
 
     // stdout.writef("%d:%d: %s\n", start, position, t);
-  }
-
-  unittest {
-    Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))");
-    lex.run();
-
-    std.stdio.stdout.writeln(lex.items);
-    assert(lex.items == [
-                         Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
-                         Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
-                         Token(TokenType.Space, " ", Position(2, 4, 14)),
-                         Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
-                         Token(TokenType.Identifier, "+", Position(2, 6, 16)),
-                         Token(TokenType.Space, " ", Position(2, 7, 17)),
-                         Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
-                         Token(TokenType.Identifier, "x", Position(2, 9, 19)),
-                         Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
-                         Token(TokenType.Space, " ", Position(2, 11, 21)),
-                         Token(TokenType.Identifier, "y", Position(2, 12, 22)),
-                         Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
-                         Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
-                         ]);
   }
 }
