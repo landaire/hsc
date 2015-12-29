@@ -61,10 +61,28 @@ struct Token {
     switch (type) {
     case TokenType.EOF:
       return "EOF";
-    case TokenType.Error:
-      return value;
     default:
-      return format("%s \"%s\": line %s", type, value, position);
+      string renderedValue;
+
+      if (type == TokenType.Space) {
+        foreach (c; value) {
+          final switch (c) {
+          case ' ':
+            renderedValue ~= "<SPC>";
+            break;
+          case '\r':
+            renderedValue ~= "<CR>";
+            break;
+          case '\n':
+            renderedValue ~= "<LF>";
+            break;
+          }
+        }
+      } else {
+        renderedValue = value;
+      }
+
+      return format("%s \"%s\": line %s", type, renderedValue, position);
     }
   }
 }
@@ -116,33 +134,16 @@ class Lexer {
   void addItem(TokenType item) {
     import std.algorithm.searching : canFind;
 
-    string value;
-    auto valueSlice = input[start..position];
+    string value = input[start..position];
     auto tokenPosition = currentPosition();
 
     if (item == TokenType.Space) {
       // this avoids something like <SPC><SPC><CR><LF><SPC> having
       // an integer underflow since the last linefeed would have been marked as part of that buffer
-      if (canFind(valueSlice, '\n')) {
+      if (canFind(value, '\n')) {
         tokenPosition.line--;
         tokenPosition.col = start - lastLineNumIndex;
       }
-
-      foreach (c; valueSlice) {
-        final switch (c) {
-        case ' ':
-          value ~= "<SPC>";
-          break;
-        case '\r':
-          value ~= "<CR>";
-          break;
-        case '\n':
-          value ~= "<LF>";
-          break;
-        }
-      }
-    } else {
-      value = valueSlice;
     }
 
     addItem(Token(item, value, tokenPosition));
@@ -477,14 +478,14 @@ class Lexer {
     assert(lex.items == [
                          Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
                          Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
-                         Token(TokenType.Space, "<SPC>", Position(2, 4, 14)),
+                         Token(TokenType.Space, " ", Position(2, 4, 14)),
                          Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
                          Token(TokenType.Identifier, "+", Position(2, 6, 16)),
-                         Token(TokenType.Space, "<SPC>", Position(2, 7, 17)),
+                         Token(TokenType.Space, " ", Position(2, 7, 17)),
                          Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
                          Token(TokenType.Identifier, "x", Position(2, 9, 19)),
                          Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
-                         Token(TokenType.Space, "<SPC>", Position(2, 11, 21)),
+                         Token(TokenType.Space, " ", Position(2, 11, 21)),
                          Token(TokenType.Identifier, "y", Position(2, 12, 22)),
                          Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
                          Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
