@@ -356,7 +356,7 @@ class Lexer {
       }
     }
 
-    addItem(TokenType.Space);
+    ignore();
 
     if (parenDepth == 0) {
       state = &lexText;
