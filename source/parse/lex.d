@@ -33,25 +33,6 @@ enum TokenType {
 
   OpenParen,
   CloseParen,
-  Bang,
-  Hash,
-  Dollar,
-  Percent,
-  Amersand,
-  Pipe,
-  Asterisk,
-  Plus,
-  Minus,
-  Slash,
-  Colon,
-  OpenAngleBracket,
-  Equals,
-  RightAngleBracket,
-  QuestionMark,
-  At,
-  Caret,
-  Underscore,
-  Tilde,
 }
 
 /**
