@@ -1,10 +1,24 @@
 module hsc;
 
+import std.file;
 import std.stdio;
-import token.token;
+import std.getopt;
+import parse.lex;
 
-void main()
+void main(string[] args)
 {
-  Parser parser = new Parser();
-	writeln("Edit source/app.d to start your project.");
+  string file;
+  auto info = getopt(args,
+                     "file", &file);
+
+  if (!file) {
+    defaultGetoptPrinter("Usage:", info.options);
+
+    return;
+  }
+
+  Lexer lex = new Lexer(file, cast(string)read(file));
+  lex.run();
+
+  stdout.writeln(lex.items);
 }

@@ -1,4 +1,4 @@
-module hsc.lex;
+module parse.lex;
 
 import std.stdio : stdout;
 import std.conv;
