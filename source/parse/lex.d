@@ -79,6 +79,8 @@ class Lexer {
   size_t start = 0; // position of wherever we started lexing the last item
   size_t lastPosition; // position of the last item we lexed
   size_t parenDepth = 0; // depth of parenthesis
+  size_t lineNum = 1;
+  size_t lineNumIndex = 0;
 
   enum : char {
     eof = cast(char)-1,
@@ -93,6 +95,8 @@ class Lexer {
     this.name = name;
     this.input = input;
     this.state = &lexText;
+
+    items.reserve(input.length);
   }
 
   /**
@@ -101,6 +105,7 @@ class Lexer {
   void addItem(Token item) {
     items ~= item;
 
+    lastPosition = start;
     start = position;
   }
 
@@ -138,6 +143,10 @@ class Lexer {
 
     // this is the type of thing you're told not to do
     return input[position++];
+  }
+
+  char previous() {
+    return input[position - 1];
   }
 
   /**
@@ -187,8 +196,15 @@ class Lexer {
   void skipEOL() {
     log("skipping EOL");
 
+    backup();
+
     char nextc = next();
     while (nextc == '\r' || nextc == '\n') {
+      if (nextc == '\n') {
+        lineNum++;
+        lineNumIndex = position;
+      }
+
       nextc = next();
     }
 
@@ -262,11 +278,17 @@ class Lexer {
     // )
     // and that can be recursive
 
+    log("lexing inside parens");
+
     immutable(char) nextChar = next();
     if (nextChar == comment) {
       state = &lexComment;
       return;
     } else if (isSpace(nextChar)) {
+      if (isEndOfLine(nextChar)) {
+        skipEOL();
+      }
+
       state = &lexSpace;
       return;
     } else if (nextChar == openParen) {
@@ -372,16 +394,7 @@ class Lexer {
   }
 
   Position currentPosition() {
-    import std.range : retro;
-    import std.algorithm.searching : count, countUntil;
-
-    auto charsUntilPosition = input[0..position];
-
-    size_t lines = count(charsUntilPosition, '\n');
-    size_t indexOfLastLinebreak = countUntil(charsUntilPosition, '\n');
-
-    // countUntil is 1-indexed so we -1 since columns should be 0-indexed
-    return Position(lines, (start - indexOfLastLinebreak) - 1, start);
+    return Position(lineNum, (start - lineNumIndex), start);
   }
 
   bool isEndOfLine(char c) {
@@ -399,25 +412,35 @@ class Lexer {
     return canFind(['_', '!', '/', '+', '=', '*', '-', '<', '>'], c) || isalnum(cast(int)c) != 0;
   }
 
+  bool isNumber(char c) {
+    return c >= '0' && c <= '9';
+  }
+
+  void log(R)(R t) {
+    // import std.stdio : stdout;
+
+    // stdout.writef("%d:%d: %s\n", start, position, t);
+  }
+
   unittest {
     Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))");
     lex.run();
 
     std.stdio.stdout.writeln(lex.items);
     assert(lex.items == [
-                         Token(TokenType.OpenParen, "(", Position(1, 0, 10)),
-                         Token(TokenType.Identifier, "foo", Position(1, 1, 11)),
-                         Token(TokenType.Space, " ", Position(1, 4, 14)),
-                         Token(TokenType.OpenParen, "(", Position(1, 5, 15)),
-                         Token(TokenType.Identifier, "+", Position(1, 6, 16)),
-                         Token(TokenType.Space, " ", Position(1, 7, 17)),
-                         Token(TokenType.OpenParen, "(", Position(1, 8, 18)),
-                         Token(TokenType.Identifier, "x", Position(1, 9, 19)),
-                         Token(TokenType.CloseParen, ")", Position(1, 10, 20)),
-                         Token(TokenType.Space, " ", Position(1, 11, 21)),
-                         Token(TokenType.Identifier, "y", Position(1, 12, 22)),
-                         Token(TokenType.CloseParen, ")", Position(1, 13, 23)),
-                         Token(TokenType.CloseParen, ")", Position(1, 14, 24)),
+                         Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
+                         Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
+                         Token(TokenType.Space, " ", Position(2, 4, 14)),
+                         Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
+                         Token(TokenType.Identifier, "+", Position(2, 6, 16)),
+                         Token(TokenType.Space, " ", Position(2, 7, 17)),
+                         Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
+                         Token(TokenType.Identifier, "x", Position(2, 9, 19)),
+                         Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
+                         Token(TokenType.Space, " ", Position(2, 11, 21)),
+                         Token(TokenType.Identifier, "y", Position(2, 12, 22)),
+                         Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
+                         Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
                          ]);
   }
 }
