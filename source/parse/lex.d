@@ -22,7 +22,7 @@ enum Delimeters {
 
 }
 
-enum ItemType {
+enum TokenType {
   EOF,
   Identifier,
   Keyword,
@@ -54,6 +54,9 @@ enum ItemType {
   Tilde,
 }
 
+/**
+ * Position inside of a file
+ */
 struct Position {
   size_t line;
   size_t col;
@@ -64,16 +67,19 @@ struct Position {
   }
 }
 
-struct Item {
-  ItemType type;
+/**
+ * A lexed token
+ */
+struct Token {
+  TokenType type;
   string value;
   Position position;
 
   string toString() {
     switch (type) {
-    case ItemType.EOF:
+    case TokenType.EOF:
       return "EOF";
-    case ItemType.Error:
+    case TokenType.Error:
       return value;
     default:
       return format("%s \"%s\": line %s", type, value, position);
@@ -85,7 +91,7 @@ class Lexer {
   // used for debugging
   immutable(string) name;
   string input;
-  Item[] items; // emitted items
+  Token[] items; // emitted items
   void delegate() state; // current state
   size_t position = 0; // current position in the input
   size_t start = 0; // position of wherever we started lexing the last item
@@ -105,36 +111,42 @@ class Lexer {
     this.state = &lexText;
   }
 
-  void addItem(Item item) {
+  /**
+   * Adds a pre-built item to the lexed items list
+   */
+  void addItem(Token item) {
     items ~= item;
 
     start = position;
   }
 
-  void addItem(ItemType item) {
-    addItem(Item(item, input[start..position], currentPosition()));
+  /**
+   * Adds an Token to the lexed items list
+   */
+  void addItem(TokenType item) {
+    addItem(Token(item, input[start..position], currentPosition()));
   }
 
+  /**
+   * Sets the lexer's current token start position to position, ignoring all characters
+   * between position and start when this is called
+   */
   void ignore() {
     start = position;
   }
 
+  /**
+   * Begins lexing
+   */
   void run() {
     while (state !is null) {
       state();
     }
   }
 
-  // string parseSymbol(dchar input) {
-  //   foreach (m; __traits(allMembers, Token)) {
-  //     auto member = to!Token(m);
-  //     if (member == input) {
-  //       return "Found match: " ~ m;
-  //     }
-  //   }
-  //   return "No match";
-  // }
-
+  /**
+   * Consumes and returns the next character in the buffer. Returns EOF if we've gone outside the buffer
+   */
   char next() {
     if (position >= input.length) {
       return eof;
@@ -144,6 +156,9 @@ class Lexer {
     return input[position++];
   }
 
+  /**
+   * Returns but does not consume the next character in the buffer
+   */
   char peek() {
     auto n = next();
     backup();
@@ -151,11 +166,17 @@ class Lexer {
     return n;
   }
 
+  /**
+   * Backs up the buffer by one character
+   */
   void backup() {
     position--;
   }
 
-  // Lexes abitrary text until we hit an opening paren
+  /**
+   * Lexes top-level text. This will usually skip whitespace, encounter EOF, or set the state to lexing a comment /
+   * script
+   */
   void lexText() {
   loop: while (true) {
       switch (next()) {
@@ -174,6 +195,9 @@ class Lexer {
     }
   }
 
+  /**
+   * Positions the buffer to wherever the first non-CR/LF character is
+   */
   void skipEOL() {
     char nextc = next();
     while (nextc == '\r' || nextc == '\n') {
@@ -185,6 +209,9 @@ class Lexer {
     ignore();
   }
 
+  /**
+   * Lexes comments and does not emit any tokens
+   */
   void lexComment() {
     // consume characters until we hit EOL
     char nextc;
@@ -210,7 +237,7 @@ class Lexer {
   }
 
   void lexOpenParen() {
-    addItem(ItemType.OpenParen);
+    addItem(TokenType.OpenParen);
     parenDepth++;
 
     // check for a comment since these can go here
@@ -224,7 +251,7 @@ class Lexer {
   }
 
   void lexCloseParen() {
-    addItem(ItemType.CloseParen);
+    addItem(TokenType.CloseParen);
     parenDepth--;
 
     if (parenDepth == 0) {
@@ -272,7 +299,7 @@ class Lexer {
       }
     }
 
-    addItem(ItemType.Space);
+    addItem(TokenType.Space);
 
     state = &lexInsideParens;
   }
@@ -289,7 +316,7 @@ class Lexer {
         string word = input[start..position];
 
         // do something with word later
-        addItem(ItemType.Identifier);
+        addItem(TokenType.Identifier);
 
         break;
       }
@@ -299,7 +326,7 @@ class Lexer {
   }
 
   void error(string message) {
-    addItem(Item(ItemType.Error, message, currentPosition()));
+    addItem(Token(TokenType.Error, message, currentPosition()));
 
     state = null;
   }
@@ -338,19 +365,19 @@ class Lexer {
 
     std.stdio.stdout.writeln(lex.items);
     assert(lex.items == [
-                         Item(ItemType.OpenParen, "(", Position(1, 0, 10)),
-                         Item(ItemType.Identifier, "foo", Position(1, 1, 11)),
-                         Item(ItemType.Space, " ", Position(1, 4, 14)),
-                         Item(ItemType.OpenParen, "(", Position(1, 5, 15)),
-                         Item(ItemType.Identifier, "+", Position(1, 6, 16)),
-                         Item(ItemType.Space, " ", Position(1, 7, 17)),
-                         Item(ItemType.OpenParen, "(", Position(1, 8, 18)),
-                         Item(ItemType.Identifier, "x", Position(1, 9, 19)),
-                         Item(ItemType.CloseParen, ")", Position(1, 10, 20)),
-                         Item(ItemType.Space, " ", Position(1, 11, 21)),
-                         Item(ItemType.Identifier, "y", Position(1, 12, 22)),
-                         Item(ItemType.CloseParen, ")", Position(1, 13, 23)),
-                         Item(ItemType.CloseParen, ")", Position(1, 14, 24)),
+                         Token(TokenType.OpenParen, "(", Position(1, 0, 10)),
+                         Token(TokenType.Identifier, "foo", Position(1, 1, 11)),
+                         Token(TokenType.Space, " ", Position(1, 4, 14)),
+                         Token(TokenType.OpenParen, "(", Position(1, 5, 15)),
+                         Token(TokenType.Identifier, "+", Position(1, 6, 16)),
+                         Token(TokenType.Space, " ", Position(1, 7, 17)),
+                         Token(TokenType.OpenParen, "(", Position(1, 8, 18)),
+                         Token(TokenType.Identifier, "x", Position(1, 9, 19)),
+                         Token(TokenType.CloseParen, ")", Position(1, 10, 20)),
+                         Token(TokenType.Space, " ", Position(1, 11, 21)),
+                         Token(TokenType.Identifier, "y", Position(1, 12, 22)),
+                         Token(TokenType.CloseParen, ")", Position(1, 13, 23)),
+                         Token(TokenType.CloseParen, ")", Position(1, 14, 24)),
                          ]);
   }
 }
