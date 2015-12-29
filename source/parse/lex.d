@@ -6,22 +6,6 @@ import std.format : format;
 import std.range;
 import std.range.primitives;
 
-enum CellType {
-  EOF,
-  Symbol,
-  Number,
-  List,
-  Proc,
-  Lambda,
-}
-
-//                                "!#$%&|*+-/:<=>?@^_~"
-enum Delimeters {
-  OpenParen = '(',
-  CloseParen = ')',
-
-}
-
 enum TokenType {
   EOF,
   Identifier,
