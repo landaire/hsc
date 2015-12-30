@@ -155,25 +155,23 @@ class Lexer {
     Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))");
     lex.run();
 
-    std.stdio.stdout.writeln(lex.items);
     auto items = [
                   Token(TokenType.Comment, ";foo hooo", Position(1, 0, 0)),
                   Token(TokenType.Space, "\n", Position(1, 9, 9)),
-                         Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
-                         Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
-                         Token(TokenType.Space, " ", Position(2, 4, 14)),
-                         Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
-                         Token(TokenType.Identifier, "+", Position(2, 6, 16)),
-                         Token(TokenType.Space, " ", Position(2, 7, 17)),
-                         Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
-                         Token(TokenType.Identifier, "x", Position(2, 9, 19)),
-                         Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
-                         Token(TokenType.Space, " ", Position(2, 11, 21)),
-                         Token(TokenType.Identifier, "y", Position(2, 12, 22)),
-                         Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
-                         Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
-                  ];
-    std.stdio.stdout.writeln(items);
+                  Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
+                  Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
+                  Token(TokenType.Space, " ", Position(2, 4, 14)),
+                  Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
+                  Token(TokenType.Identifier, "+", Position(2, 6, 16)),
+                  Token(TokenType.Space, " ", Position(2, 7, 17)),
+                  Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
+                  Token(TokenType.Identifier, "x", Position(2, 9, 19)),
+                  Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
+                  Token(TokenType.Space, " ", Position(2, 11, 21)),
+                  Token(TokenType.Identifier, "y", Position(2, 12, 22)),
+                  Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
+                  Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
+                 ];
 
     assert(lex.items.length == items.length);
     assert(lex.items == items);
