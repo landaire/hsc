@@ -1,4 +1,4 @@
-module parse.lex;
+module hsc.parse.lex;
 
 import std.stdio : stdout;
 import std.conv;
@@ -249,8 +249,10 @@ class Lexer {
     // backup so we can consume the linebreak that whatever lex method read. this is so we can
     // identify if it's a CR or LF and mark EOL if it's LF
     backup();
-
     char nextc = next();
+
+    size_t pos = position;
+
     while (nextc == '\r' || nextc == '\n') {
       if (nextc == '\n') {
         markEOL();
@@ -259,7 +261,9 @@ class Lexer {
       nextc = next();
     }
 
-    backup();
+    if (position > pos) {
+      backup();
+    }
   }
 
   void markEOL() {
@@ -376,7 +380,7 @@ class Lexer {
     while (isSpace(peek())) {
       auto nextc = next();
 
-      if (nextc == '\n') {
+      if (isEndOfLine(nextc)) {
         skipEOL();
       }
     }
@@ -511,8 +515,8 @@ class Lexer {
   }
 
   void log(R)(R t) {
-    // import std.stdio : stdout;
+    // import std.stdio;
 
-    // stdout.writef("%d:%d: %s\n", start, position, t);
+    // writef("%d:%d: %s\n", start, position, t);
   }
 }
