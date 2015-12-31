@@ -1,12 +1,14 @@
-module hsc;
-
 import std.file;
 import std.stdio;
 import std.getopt;
-import parse.lex;
+import hsc.parse.lex;
+import hsc.xml;
 
 void main(string[] args)
 {
+  auto xml = cast(string)std.file.read("H3_Scripting.xml");
+  stdout.writeln(HaloScript.parseXml(xml));
+
   string file;
   auto info = getopt(args,
                      "file", &file);
