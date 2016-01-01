@@ -72,7 +72,7 @@ struct Global {
   ValueType type;
 }
 
-enum Game {
+enum Game : string {
   Halo3Xbox = "Halo3_Xbox",
 }
 
@@ -83,54 +83,44 @@ class HaloScript {
   ValueType[] values;
   ScriptType[] scriptTypes;
 
-  static HaloScript[] parseXml(string text) {
+  static HaloScript parseXml(string text) {
     import std.xml;
 
     // make sure input is well-formed xml
     check(text);
 
-    HaloScript[] scripts;
+    HaloScript script = new HaloScript;
 
     auto xml = new DocumentParser(text);
 
-    xml.onStartTag["BlamScript"] = (ElementParser xml) {
-      writeln("blam");
-      static void tryParseScriptType (T)(out T type, in Element e) {
-        if (!isScriptValue!(typeof(type))()) {
-          return;
-        }
-
-        type.name = e.tag.attr["name"];
-        type.opcode = to!Opcode(e.tag.attr["name"]);
+    static void tryParseScriptType (T)(out T type, in Element e) {
+      if (!isScriptValue!(typeof(type))()) {
+        return;
       }
 
-      HaloScript script = HaloScript.init;
+      type.name = e.tag.attr["name"];
+      // need to remove 0x from number here, hence the slice
+      type.opcode = to!Opcode(e.tag.attr["opcode"][2..$]);
+    }
 
-      script.game = to!Game(xml.tag.attr["game"]);
+    script.game = cast(Game)xml.tag.attr["game"];
 
-      xml.onStartTag["scriptTypes"] = (ElementParser xml) {
-        xml.onEndTag["type"] = (in Element e) {
-          ScriptType type = ScriptType.init;
+    xml.onStartTag["scriptTypes"] = (ElementParser xml) {
+      xml.onEndTag["type"] = (in Element e) {
+        ScriptType type ;
 
-          tryParseScriptType(type, e);
+        tryParseScriptType(type, e);
 
-          script.scriptTypes ~= type;
+        script.scriptTypes ~= type;
 
-          writeln(type);
-        };
-
-        xml.parse();
+        writeln(type);
       };
 
       xml.parse();
-
-      writeln(script);
-
-      scripts ~= script;
     };
 
     xml.parse();
 
-    return scripts;
+    return script;
   }
 }
