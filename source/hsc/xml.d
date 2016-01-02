@@ -93,27 +93,54 @@ class HaloScript {
 
     auto xml = new DocumentParser(text);
 
-    static void tryParseScriptType (T)(out T type, in Element e) {
+    static void tryParseScriptType (T)(out T type, in Tag t) {
       if (!isScriptValue!(typeof(type))()) {
         return;
       }
 
-      type.name = e.tag.attr["name"];
+      type.name = t.attr["name"];
       // need to remove 0x from number here, hence the slice
-      type.opcode = to!Opcode(e.tag.attr["opcode"][2..$]);
+      type.opcode = t.attr["opcode"][2..$].to!Opcode(16);
     }
 
     script.game = cast(Game)xml.tag.attr["game"];
 
     xml.onStartTag["scriptTypes"] = (ElementParser xml) {
       xml.onEndTag["type"] = (in Element e) {
-        ScriptType type ;
+        ScriptType type;
 
-        tryParseScriptType(type, e);
+        tryParseScriptType(type, e.tag);
 
         script.scriptTypes ~= type;
 
         writeln(type);
+      };
+
+
+      xml.parse();
+    };
+
+    xml.onStartTag["valueTypes"] = (ElementParser xml) {
+      xml.onStartTag["type"] = (ElementParser xml) {
+        ValueType value;
+        const(Tag) tag = xml.tag;
+
+        tryParseScriptType(value, tag);
+
+        value.size = to!size_t(tag.attr["size"]);
+        value.quoted = "quoted" in tag.attr ? to!bool(tag.attr["quoted"]) : false;
+        value.tag = "tag" in tag.attr ? tag.attr["tag"] : null;
+        value.object = "object" in tag.attr ? to!bool(tag.attr["object"]) : false;
+
+        xml.onEndTag["enum"] = (in Element e) {
+          value.options ~= e.text();
+        };
+
+        xml.parse();
+
+        writeln(value);
+
+        script.values ~= value;
       };
 
       xml.parse();
