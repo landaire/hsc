@@ -2,6 +2,7 @@ module hsc.xml;
 
 import std.conv;
 import std.stdio;
+import std.array;
 
 alias Opcode = ushort;
 
@@ -22,6 +23,7 @@ enum ObjectTypeMask {
 }
 
 enum FunctionGroup {
+  If,
   Begin,
   Cond,
   Set,
@@ -78,10 +80,10 @@ enum Game : string {
 
 class HaloScript {
   Game game;
-  Global[] globals;
+  Global[string] globals;
   Function[string] builtins; // indexed by name
-  ValueType[] values;
-  ScriptType[] scriptTypes;
+  ValueType[string] values;
+  ScriptType[string] scriptTypes;
 
   static HaloScript parseXml(string text) {
     import std.xml;
@@ -111,7 +113,7 @@ class HaloScript {
 
         tryParseScriptType(type, e.tag);
 
-        script.scriptTypes ~= type;
+        script.scriptTypes[type.name] = type;
 
         writeln(type);
       };
@@ -140,7 +142,40 @@ class HaloScript {
 
         writeln(value);
 
-        script.values ~= value;
+        script.values[value.name] = value;
+      };
+
+      xml.parse();
+    };
+
+    xml.onStartTag["functions"] = (ElementParser xml) {
+      xml.onStartTag["function"] = (ElementParser xml) {
+        Function f;
+        tryParseScriptType(f, xml.tag);
+        f.returnType = script.values[xml.tag.attr["returnType"].replace(" ", "_")];
+
+        if ("flags" in xml.tag.attr) {
+          f.flags = xml.tag.attr["flags"].to!(typeof(f.flags));
+        }
+
+        if ("group" in xml.tag.attr) {
+          f.group = to!FunctionGroup(xml.tag.attr["group"]);
+        }
+
+        xml.onEndTag["arg"] = (in Element e) {
+          Parameter p;
+          writeln(e.tag.attr["type"]);
+          p.type = script.values[e.tag.attr["type"].replace(" ", "_")];
+          p.name = e.tag.attr["name"];
+
+          f.parameters ~= p;
+        };
+
+        xml.parse();
+
+        script.builtins[f.name] = f;
+
+        writeln(f);
       };
 
       xml.parse();
