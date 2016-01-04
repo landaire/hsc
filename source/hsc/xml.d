@@ -103,6 +103,11 @@ class HaloScript {
       type.name = t.attr["name"];
       // need to remove 0x from number here, hence the slice
       type.opcode = t.attr["opcode"][2..$].to!Opcode(16);
+
+      if (type.name == "") {
+        static unknown = 0;
+        type.name = "unknown" ~ to!string(unknown++);
+      }
     }
 
     script.game = cast(Game)xml.tag.attr["game"];
@@ -176,6 +181,18 @@ class HaloScript {
         script.builtins[f.name] = f;
 
         writeln(f);
+      };
+
+      xml.parse();
+    };
+
+    xml.onStartTag["globals"] = (ElementParser xm) {
+      xml.onEndTag["global"] = (in Element e) {
+        Global global;
+        tryParseScriptType(global, e.tag);
+        global.type = script.values[e.tag.attr["type"].replace(" ", "_")];
+
+        script.globals[global.name] = global;
       };
 
       xml.parse();
