@@ -119,8 +119,6 @@ class HaloScript {
         tryParseScriptType(type, e.tag);
 
         script.scriptTypes[type.name] = type;
-
-        writeln(type);
       };
 
 
@@ -145,8 +143,6 @@ class HaloScript {
 
         xml.parse();
 
-        writeln(value);
-
         script.values[value.name] = value;
       };
 
@@ -169,7 +165,6 @@ class HaloScript {
 
         xml.onEndTag["arg"] = (in Element e) {
           Parameter p;
-          writeln(e.tag.attr["type"]);
           p.type = script.values[e.tag.attr["type"].replace(" ", "_")];
           p.name = e.tag.attr["name"];
 
@@ -179,8 +174,6 @@ class HaloScript {
         xml.parse();
 
         script.builtins[f.name] = f;
-
-        writeln(f);
       };
 
       xml.parse();
