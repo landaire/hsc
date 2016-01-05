@@ -97,7 +97,7 @@ class Lexer {
   };
 
   this(string name, string input) {
-    this(name, input);
+    this(name, input, []);
   }
 
   this(string name, string input, string[] keywords) {
