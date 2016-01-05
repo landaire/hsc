@@ -85,6 +85,7 @@ class Lexer {
   size_t lineNum = 1;
   size_t lineNumIndex = 0;
   size_t lastLineNumIndex = 0;
+  string[] keywords;
 
   enum : char {
     eof = cast(char)-1,
@@ -96,9 +97,14 @@ class Lexer {
   };
 
   this(string name, string input) {
+    this(name, input);
+  }
+
+  this(string name, string input, string[] keywords) {
     this.name = name;
     this.input = input;
     this.state = &lexText;
+    this.keywords = keywords;
 
     items.reserve(input.length);
   }
@@ -410,6 +416,8 @@ class Lexer {
   }
 
   void lexIdentifier() {
+    import std.algorithm.searching : canFind;
+
     log("lexing identifier");
 
     while(true) {
@@ -424,6 +432,9 @@ class Lexer {
 
         if (word == "true" || word == "false") {
           addItem(TokenType.Bool);
+        }
+        else if (canFind(keywords, word)) {
+          addItem(TokenType.Keyword);
         } else {
           // do something with word later
           addItem(TokenType.Identifier);
