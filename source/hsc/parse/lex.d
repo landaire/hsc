@@ -126,6 +126,8 @@ class Lexer {
       // this avoids something like <SPC><SPC><CR><LF><SPC> having
       // an integer underflow since the last linefeed would have been marked as part of that buffer
       if (canFind(value, '\n')) {
+        assert(start > lastLineNumIndex);
+
         tokenPosition.line--;
         tokenPosition.col = start - lastLineNumIndex;
       }
@@ -152,7 +154,7 @@ class Lexer {
   }
 
   unittest {
-    Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))");
+    Lexer lex = new Lexer("input", ";foo hooo\n(foo (+ (x) y))\r\n;foo\r\n");
     lex.run();
 
     auto items = [
@@ -171,6 +173,9 @@ class Lexer {
                   Token(TokenType.Identifier, "y", Position(2, 12, 22)),
                   Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
                   Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
+                  Token(TokenType.Space, "\r\n", Position(2, 15, 25)),
+                  Token(TokenType.Comment, ";foo", Position(3, 0, 27)),
+                  Token(TokenType.Space, "\r\n", Position(3, 4, 31)),
                  ];
 
     assert(lex.items.length == items.length);
@@ -182,6 +187,9 @@ class Lexer {
    */
   char next() {
     if (position >= input.length) {
+      // increment position here so that callers don't need to explicitly check for EOF and backup()
+      // only if it's not EOF... this just makes things easier
+      position++;
       return eof;
     }
 
@@ -199,9 +207,7 @@ class Lexer {
   char peek() {
     auto n = next();
 
-    if (n != eof) {
-      backup();
-    }
+    backup();
 
     return n;
   }
@@ -243,7 +249,7 @@ class Lexer {
   /**
    * Positions the buffer to wherever the first non-CR/LF character is
    */
-  void skipEOL() {
+  void skipEOL(out bool eolMarked) {
     log("skipping EOL");
 
     // backup so we can consume the linebreak that whatever lex method read. this is so we can
@@ -255,20 +261,26 @@ class Lexer {
 
     while (nextc == '\r' || nextc == '\n') {
       if (nextc == '\n') {
-        markEOL();
+        markEOL(eolMarked);
+        eolMarked = true;
       }
 
       nextc = next();
     }
 
+    // if we don't do this upon exiting then we'll be off-by-one
     if (position > pos) {
       backup();
     }
   }
 
-  void markEOL() {
+  void markEOL(ref bool hasEolBeenMarked) {
     lineNum++;
-    lastLineNumIndex = lineNumIndex;
+
+    if (!hasEolBeenMarked) {
+      lastLineNumIndex = lineNumIndex;
+    }
+
     lineNumIndex = position;
   }
 
@@ -285,18 +297,19 @@ class Lexer {
 
       if (nextc == eof) {
         state = null;
-        return;
+
+        break;
       } else if (isEndOfLine(nextc)) {
-        backup();
+        // this is consumed elsewhere
+        state = &lexSpace;
 
         break;
       }
     }
 
-    addItem(TokenType.Comment);
+    backup();
 
-    // the comment has to end in at least one linebreak or EOF. Since EOF returns and puts us in a null state, we need to lex the spaces
-    state = &lexSpace;
+    addItem(TokenType.Comment);
   }
 
   void lexOpenParen() {
@@ -377,11 +390,13 @@ class Lexer {
   void lexSpace() {
     log("lexing space");
 
+    bool eolMarked = false;
+
     while (isSpace(peek())) {
       auto nextc = next();
 
       if (isEndOfLine(nextc)) {
-        skipEOL();
+        skipEOL(eolMarked);
       }
     }
 
