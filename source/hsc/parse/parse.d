@@ -202,6 +202,10 @@ class Parser {
         return;
       }
 
+      if (depth == 0) {
+        ret ~= "\n";
+      }
+
       ret ~= node.toString().rightJustify(depth + node.toString().length, '-');
 
 
@@ -223,21 +227,19 @@ class Parser {
         auto n = cast(FunctionCall)node;
 
         ret ~= format(" call %s()\n", n.name);
-
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
         }
       } else if (cast(Literal)node !is null) {
         auto n = cast(Literal)node;
 
-        ret ~= format(" literal: %s", node.name);
+        ret ~= format(" literal: %s\n", node.name);
       } else if (cast(Identifier)node !is null) {
         auto n = cast(Identifier)node;
 
-        ret ~= format(" %s", node.name);
+        ret ~= format(" %s\n", node.name);
       }
 
-      ret ~= '\n';
     }
 
     foreach (node; nodes) {
