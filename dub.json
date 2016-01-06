@@ -3,6 +3,7 @@
 	"description": "A minimal D application.",
 	"copyright": "Copyright © 2015, lander",
 	"authors": ["lander"],
-	"dependencies": {
+  "dependencies": {
+      "colorize": "~>1.0.5"
 	}
 }

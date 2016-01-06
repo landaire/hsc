@@ -194,8 +194,10 @@ class Parser {
   }
 
   override string toString() {
-    string ret = "";
     import std.string;
+    import colorize : color;
+
+    string ret = "";
 
     void recursiveWorker(Node node, size_t depth) {
       if (node is null) {
@@ -231,7 +233,25 @@ class Parser {
           recursiveWorker(child, depth + 1);
         }
       } else {
-        ret ~= format(" %s\n", node.name);
+        auto value = format(" %s\n", node.name);
+
+        if (cast(Literal)node !is null) {
+          auto lit = cast(Literal)node;
+
+          switch (lit.value.type) {
+          case TokenType.Bool:
+            value = value.color("blue");
+            break;
+          case TokenType.Number:
+            value = value.color("magenta");
+            break;
+          default:
+            value = value.color("green");
+            break;
+          }
+        }
+
+        ret ~= value;
       }
 
     }
