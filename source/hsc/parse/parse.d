@@ -218,7 +218,7 @@ class Parser {
       } else if (cast(FunctionDef)node !is null) {
         auto n = cast(FunctionDef)node;
 
-        ret ~= format(" %s %s %s()\n", n.scriptType, n.returnType, n.name).rightJustify(depth, '+');
+        ret ~= format(" %s %s %s()\n", n.scriptType, n.returnType, n.name);
 
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
