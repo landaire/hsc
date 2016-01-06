@@ -6,18 +6,18 @@ import hsc.parse.lex : TokenType;
 abstract class Node {
   Node parent;
 
-  Token tok;
+  Token[] tokenStream;
 
   static immutable stringFunc = "override string toString() { import std.traits; return fullyQualifiedName!(typeof(this)); }";
 
   private this() {}
 
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
   }
 
   @property public string name() {
-    return tok.value;
+    return tokenStream[0].value;
   }
 }
 
@@ -27,7 +27,7 @@ class FunctionCall : Node {
   private this() {}
 
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
   }
 
   mixin(stringFunc);
@@ -36,9 +36,18 @@ class FunctionCall : Node {
 class FunctionDef : FunctionCall {
   public string returnType;
   public string scriptType;
+  private string _name;
 
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
+  }
+
+  @property override public string name() {
+    return _name;
+  }
+
+  @property public string name(string n) {
+    return _name = n;
   }
 
   mixin(stringFunc);
@@ -50,7 +59,7 @@ class VariableDef : FunctionCall {
   public Node initialValue;
 
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
   }
 
   @property override public string name() {
@@ -66,11 +75,11 @@ class VariableDef : FunctionCall {
 
 class Literal : Node {
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
   }
 
   @property string type() {
-    switch (tok.type) {
+    switch (value.type) {
     case TokenType.Number:
       return "Number";
     case TokenType.Text:
@@ -80,12 +89,20 @@ class Literal : Node {
     }
   }
 
+  @property Token value() {
+    return tokenStream[0];
+  }
+
   mixin(stringFunc);
 }
 
 class Identifier : Node {
   public this(Token t) {
-    this.tok = t;
+    tokenStream ~= t;
+  }
+
+  @property Token value() {
+    return tokenStream[0];
   }
 
   mixin(stringFunc);

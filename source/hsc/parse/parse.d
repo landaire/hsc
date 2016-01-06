@@ -148,6 +148,8 @@ class Parser {
 
               goto _end;
             }
+          } else if (tok.type == TokenType.Identifier && fdef.name is null) {
+            fdef.name = tok.value;
           }
         } else if (cast(VariableDef)currentNode !is null) {
           auto vdef = cast(VariableDef)currentNode;
@@ -175,6 +177,9 @@ class Parser {
 
     _end:
       _previous = tok;
+      if (tok.type != TokenType.OpenParen && tok.type != TokenType.CloseParen) {
+        currentNode.tokenStream ~= tok;
+      }
     }
   }
 
