@@ -2,13 +2,14 @@ module hsc.parse.ast.node;
 
 import hsc.parse.lex : Token;
 import hsc.parse.lex : TokenType;
+import std.conv;
 
 abstract class Node {
   Node parent;
 
   Token[] tokenStream;
 
-  static immutable stringFunc = "override string toString() { import std.traits; return fullyQualifiedName!(typeof(this)); }";
+  static immutable stringFunc = "override string toString() { return typeof(this).stringof; }";
 
   private this() {}
 
