@@ -1,7 +1,7 @@
 import std.file;
 import std.stdio;
 import std.getopt;
-import hsc.parse.lex;
+import hsc.parse.parse;
 import hsc.xml;
 
 void main(string[] args)
@@ -20,12 +20,13 @@ void main(string[] args)
   auto script = HaloScript.parseXml(xml);
 
   // These are our keywords
-  string[] keywords;
+  string[] keywords = ["global"];
   keywords ~= script.values.keys;
   keywords ~= script.scriptTypes.keys;
 
-  Lexer lex = new Lexer(file, cast(string)read(file), keywords);
-  lex.run();
+  auto parser = new Parser(file, cast(string)read(file), keywords);
+  parser.parse();
 
-  stdout.writeln(lex.items);
+  // stdout.writeln(parser.tokens);
+  stdout.writeln(parser.toString());
 }
