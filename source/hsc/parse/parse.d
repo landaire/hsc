@@ -218,7 +218,7 @@ class Parser {
       } else if (cast(FunctionDef)node !is null) {
         auto n = cast(FunctionDef)node;
 
-        ret ~= format(" def: %s %s %s()\n", n.scriptType, n.returnType, n.name).rightJustify(depth, '+');
+        ret ~= format(" %s %s %s()\n", n.scriptType, n.returnType, n.name).rightJustify(depth, '+');
 
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
@@ -226,17 +226,11 @@ class Parser {
       } else if (cast(FunctionCall)node !is null) {
         auto n = cast(FunctionCall)node;
 
-        ret ~= format(" call %s()\n", n.name);
+        ret ~= format(" %s()\n", n.name);
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
         }
-      } else if (cast(Literal)node !is null) {
-        auto n = cast(Literal)node;
-
-        ret ~= format(" literal: %s\n", node.name);
-      } else if (cast(Identifier)node !is null) {
-        auto n = cast(Identifier)node;
-
+      } else {
         ret ~= format(" %s\n", node.name);
       }
 
