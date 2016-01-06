@@ -197,6 +197,12 @@ class Parser {
     import std.string;
     import colorize : color;
 
+    immutable keyword = "blue";
+    immutable funccall = "light_cyan";
+    immutable funcdecl = "red";
+    immutable number = "magenta";
+    immutable text = "green";
+
     string ret = "";
 
     void recursiveWorker(Node node, size_t depth) {
@@ -220,7 +226,7 @@ class Parser {
       } else if (cast(FunctionDef)node !is null) {
         auto n = cast(FunctionDef)node;
 
-        ret ~= format(" %s %s %s()\n", n.scriptType, n.returnType, n.name);
+        ret ~= format(" %s %s %s()\n", n.scriptType.color(keyword), n.returnType.color(keyword), n.name.color(funcdecl));
 
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
@@ -228,7 +234,7 @@ class Parser {
       } else if (cast(FunctionCall)node !is null) {
         auto n = cast(FunctionCall)node;
 
-        ret ~= format(" %s()\n", n.name);
+        ret ~= format(" %s\n", n.name).color(funccall);
         foreach (child; n.arguments) {
           recursiveWorker(child, depth + 1);
         }
@@ -240,13 +246,13 @@ class Parser {
 
           switch (lit.value.type) {
           case TokenType.Bool:
-            value = value.color("blue");
+            value = value.color(keyword);
             break;
           case TokenType.Number:
-            value = value.color("magenta");
+            value = value.color(number);
             break;
           default:
-            value = value.color("green");
+            value = value.color(text);
             break;
           }
         }
