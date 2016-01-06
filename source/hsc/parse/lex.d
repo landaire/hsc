@@ -5,6 +5,7 @@ import std.conv;
 import std.format : format;
 import std.range;
 import std.range.primitives;
+import std.algorithm.searching : canFind;
 
 enum TokenType {
   EOF,
@@ -87,6 +88,9 @@ class Lexer {
   size_t lastLineNumIndex = 0;
   string[] keywords;
 
+  static immutable char escape = '\\';
+  static immutable char[] escapes = ['"', '\\'];
+
   enum : char {
     eof = cast(char)-1,
     openParen = '(',
@@ -123,9 +127,12 @@ class Lexer {
    * Adds an Token to the lexed items list
    */
   void addItem(TokenType item) {
-    import std.algorithm.searching : canFind;
+    import std.algorithm.iteration : map;
+    import std.range : zip;
+    import std.array : assocArray;
+    import std.array : replace;
 
-    string value = input[start..position];
+    string value = input[start..position].idup;
     auto tokenPosition = currentPosition();
 
     if (item == TokenType.Space) {
@@ -136,6 +143,14 @@ class Lexer {
 
         tokenPosition.line--;
         tokenPosition.col = start - lastLineNumIndex;
+      }
+    } else if (item == TokenType.Text) {
+
+      // remove escape sequence
+      const dchar[string] escapeMap = assocArray(zip(escapes.map!(e => to!string(escape) ~ to!string(e)), escapes));
+
+      foreach (escapeSequence, replacement; escapeMap) {
+        value = value.replace(escapeSequence, to!string(replacement));
       }
     }
 
@@ -416,8 +431,6 @@ class Lexer {
   }
 
   void lexIdentifier() {
-    import std.algorithm.searching : canFind;
-
     log("lexing identifier");
 
     while(true) {
@@ -450,8 +463,22 @@ class Lexer {
   void lexString() {
     log("lexing string");
 
-    while(next() != quote) {
-      // do nothing, just consume
+    auto nextc = next();
+    bool inEscape = false;
+    while(nextc != quote || inEscape) {
+      // check escape sequence
+      if (inEscape) {
+        if (!canFind(escapes, nextc)) {
+          error("unknown escape sequence " ~ to!string(escape) ~ to!string(nextc));
+          return;
+        }
+
+        inEscape = false;
+      } else if (nextc == escape) {
+        inEscape = true;
+      }
+
+      nextc = next();
     }
 
     addItem(TokenType.Text);
