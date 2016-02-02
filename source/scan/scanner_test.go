@@ -1,15 +1,15 @@
 package scan
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/landaire/hsc/source/scan"
 	"github.com/landaire/hsc/source/token"
 )
 
 func TestScannerScan(t *testing.T) {
 	line := int64(1)
-	lineCount := func(increment bool) {
+	lineCount := func(increment bool) int64 {
 		if increment {
 			line++
 		}
@@ -18,7 +18,7 @@ func TestScannerScan(t *testing.T) {
 	}
 
 	expectedTokens := makeTokens(
-		makeTok(lineCount(false), " ", token.Whitespace), makeTok(lineCount(true), ";foo hooo", token.Comment),
+		makeTok(lineCount(false), "\n", token.Whitespace), makeTok(lineCount(true), ";foo hooo", token.Comment),
 		makeTok(lineCount(false), "\n", token.Whitespace), makeTok(lineCount(true), "(", token.OpenParen),
 		makeTok(lineCount(false), "foo", token.Identifier), makeTok(lineCount(false), " ", token.Whitespace),
 		makeTok(lineCount(false), "(", token.OpenParen), makeTok(lineCount(false), "+", token.Identifier),
@@ -31,43 +31,56 @@ func TestScannerScan(t *testing.T) {
 	)
 
 	c := make(chan token.TokPosition)
-	reader := io.StringReader(`
+	reader := strings.NewReader(`
 ;foo hooo
 (foo (+ (x) y))
 ;foo
 
 `)
-	scanner := scan.New()
+	scanner := New(reader, c)
 
-	go scanner.Scan(c)
+	go scanner.Scan()
 
 	tokenCount := 0
-	for tok := range <-c {
-		if tok != expectedTokens[tokenCount] {
-			t.Errorf("Unexpected token of type %s, value: %s", tok.Tok, tok.Value)
+	for tok := range c {
+		if tokenCount >= len(expectedTokens) {
+			t.Error("More tokens were reported than expected")
+			t.Error(tok)
+			return
+		}
+
+		if tok.Tok != expectedTokens[tokenCount].Tok {
+			t.Errorf("Unexpected token at %d of type %s, value: %#v", tokenCount, tok.Tok, tok.Value)
+		} else if tok != expectedTokens[tokenCount] {
+			t.Errorf("Mismatch token values. Expected %#v, got %#v", expectedTokens[tokenCount], tok)
 		}
 
 		tokenCount++
 	}
-}
 
-func makeTok(line int64, value string, tokType token.Token) token.TokPosition {
-	return token.TokPosition{
-		Line:  line,
-		Value: value,
-		Tok:   tokType,
+	if tokenCount != len(expectedTokens) {
+		t.Errorf("Expected %d tokens, got %d", len(expectedTokens), tokenCount)
 	}
 }
 
-func makeTokens(tokens ...tok.TokPosition) []tok.TokPosition {
-	var returnTokens []tok.TokPosition
+func makeTok(line int64, value string, tokType token.Token) token.TokPosition {
+	tok := token.TokPosition{}
+	tok.Line = line
+	tok.Value = value
+	tok.Tok = tokType
+
+	return tok
+}
+
+func makeTokens(tokens ...token.TokPosition) []token.TokPosition {
+	var returnTokens []token.TokPosition
 	offset := int64(0)
 
 	for i := 0; i < len(tokens); i++ {
 		currentTok := tokens[i]
 
 		if i > 0 {
-			if currentTok[i-1].Line == currentTok[i].Line {
+			if tokens[i-1].Line == currentTok.Line {
 				currentTok.Column = tokens[i-1].Column + len(tokens[i-1].Value)
 			} else {
 				currentTok.Column = 0
@@ -75,7 +88,9 @@ func makeTokens(tokens ...tok.TokPosition) []tok.TokPosition {
 		}
 
 		currentTok.Offset = offset
-		offset += len(currentTok.Value)
+		offset += int64(len(currentTok.Value))
+
+		returnTokens = append(returnTokens, currentTok)
 	}
 
 	return returnTokens

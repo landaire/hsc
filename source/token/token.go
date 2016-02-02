@@ -65,11 +65,27 @@ func LookupRune(value rune) Token {
 	case ';':
 		return Comment
 	case '\n':
+		fallthrough
 	case '\t':
+		fallthrough
 	case '\r':
+		fallthrough
 	case ' ':
 		return Whitespace
 	}
 
 	return Error
+}
+
+func LookupToken(tok Token) rune {
+	switch tok {
+	case OpenParen:
+		return ')'
+	case CloseParen:
+		return '('
+	case Comment:
+		return ';'
+	}
+
+	panic("unknown token")
 }

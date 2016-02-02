@@ -5,7 +5,7 @@ import "fmt"
 // Represents the position of a token
 type Position struct {
 	Line   int64
-	Column int64
+	Column int
 	Offset int64
 }
 
