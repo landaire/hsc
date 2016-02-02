@@ -19,23 +19,18 @@ type Scanner struct {
 	lineOffset int64
 	line       int64
 	text       *bufio.Reader
-	lastTok    token.TokPosition
 	out        chan<- token.TokPosition
 	parenDepth int
 }
 
 // New returns a new instance of a Scanner
 func New(text io.Reader, out chan<- token.TokPosition) Scanner {
-	lastToken := token.TokPosition{}
-	lastToken.Tok = token.EOF
-
 	return Scanner{
-		ch:      0,
-		offset:  0,
-		line:    1,
-		text:    bufio.NewReader(text),
-		lastTok: lastToken,
-		out:     out,
+		ch:     0,
+		offset: 0,
+		line:   1,
+		text:   bufio.NewReader(text),
+		out:    out,
 	}
 }
 
@@ -46,44 +41,46 @@ func (s *Scanner) Scan() {
 		scan = scan(s)
 	}
 
+	if s.ch == rune(0) {
+		s.Emit(token.EOF, "")
+	}
+
 	close(s.out)
 }
 
-func (s *Scanner) emitLine(value string, line int64, lineOffset int64) {
-	outTok := token.TokPosition{
-		Tok:   token.Whitespace,
-		Value: value,
-	}
-
-	outTok.Line = line
-	outTok.Offset = s.offset - int64(len(value))
-	outTok.Column = int((s.offset - 1) - lineOffset)
-
-	s.out <- outTok
-}
-
-func (s *Scanner) Emit(tok token.Token, value string) {
+func (s *Scanner) emitRaw(tok token.Token, value string, line int64, lineOffset int64) {
 	outTok := token.TokPosition{
 		Tok:   tok,
 		Value: value,
 	}
 
-	outTok.Line = s.line
-	outTok.Offset = s.offset - int64(len(value))
+	outTok.Line = line
 
-	outTok.Column = int((s.offset - 1) - s.lineOffset)
+	outTok.Offset = s.lastOffset
+
+	outTok.Column = int(s.lastOffset - (lineOffset + 1))
+
+	if outTok.Column == -1 {
+		outTok.Column = 0
+	}
 
 	s.out <- outTok
+
+	s.lastOffset = s.offset
+}
+
+func (s *Scanner) Emit(tok token.Token, value string) {
+	s.emitRaw(tok, value, s.line, s.lineOffset)
 }
 
 func (s *Scanner) next() rune {
 	read, size, err := s.text.ReadRune()
 	if read == unicode.ReplacementChar || err != nil {
-		return 0
+		s.ch = 0
+	} else {
+		s.ch = read
+		s.offset += int64(size)
 	}
-
-	s.ch = read
-	s.offset += int64(size)
 
 	return s.ch
 }
@@ -146,9 +143,8 @@ func scanWhitespace(s *Scanner) scanFunc {
 		value += string(char)
 	}
 
-	fmt.Println("Emitting linebreak")
 	if hasLinebreak {
-		s.emitLine(value, line, lineOffset)
+		s.emitRaw(token.Whitespace, value, line, lineOffset)
 	} else {
 		s.Emit(token.Whitespace, value)
 	}
@@ -178,8 +174,10 @@ func scanInsideParen(s *Scanner) scanFunc {
 	// check the first char here
 	char := s.peek()
 
-	if isIdentifierRune(char) {
+	if isIdentifier(char) {
 		return scanIdentifier
+	} else if isWhitespace(char) {
+		return scanWhitespace
 	} else if isDigit(char) {
 		return scanNumber
 	} else if token.LookupRune(char) == token.CloseParen {
@@ -200,11 +198,9 @@ func scanInsideParen(s *Scanner) scanFunc {
 func scanIdentifier(s *Scanner) scanFunc {
 	value := ""
 
-	for isIdentifierRune(s.peek()) {
+	for isIdentifier(s.peek()) {
 		value += string(s.next())
 	}
-
-	s.backup()
 
 	s.Emit(token.Identifier, value)
 
@@ -220,7 +216,11 @@ func scanString(s *Scanner) scanFunc {
 }
 
 func scanCloseParen(s *Scanner) scanFunc {
-	return nil
+	s.Emit(token.CloseParen, string(s.next()))
+
+	s.parenDepth--
+
+	return scanInsideParen
 }
 
 func scanComment(s *Scanner) scanFunc {
@@ -244,8 +244,8 @@ func scanComment(s *Scanner) scanFunc {
 	return scanText
 }
 
-func isIdentifierRune(r rune) bool {
-	return r >= 'a' && r <= 'Z' || isSymbol(r)
+func isIdentifier(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || isSymbol(r) || isDigit(r)
 }
 
 func isDigit(r rune) bool {

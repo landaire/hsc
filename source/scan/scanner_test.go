@@ -35,7 +35,6 @@ func TestScannerScan(t *testing.T) {
 ;foo hooo
 (foo (+ (x) y))
 ;foo
-
 `)
 	scanner := New(reader, c)
 
@@ -68,6 +67,7 @@ func makeTok(line int64, value string, tokType token.Token) token.TokPosition {
 	tok.Line = line
 	tok.Value = value
 	tok.Tok = tokType
+	tok.Column = 0
 
 	return tok
 }
@@ -77,7 +77,7 @@ func makeTokens(tokens ...token.TokPosition) []token.TokPosition {
 	offset := int64(0)
 
 	for i := 0; i < len(tokens); i++ {
-		currentTok := tokens[i]
+		currentTok := &tokens[i]
 
 		if i > 0 {
 			if tokens[i-1].Line == currentTok.Line {
@@ -85,12 +85,17 @@ func makeTokens(tokens ...token.TokPosition) []token.TokPosition {
 			} else {
 				currentTok.Column = 0
 			}
+
+			if currentTok.Tok == token.EOF {
+				currentTok.Offset = tokens[i-1].Offset
+			} else {
+				currentTok.Offset = offset
+			}
 		}
 
-		currentTok.Offset = offset
 		offset += int64(len(currentTok.Value))
 
-		returnTokens = append(returnTokens, currentTok)
+		returnTokens = append(returnTokens, *currentTok)
 	}
 
 	return returnTokens
