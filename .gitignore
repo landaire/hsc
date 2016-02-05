@@ -6,3 +6,4 @@ __dummy.html
 __test__library__
 ./hsc
 .DS_Store
+*.test

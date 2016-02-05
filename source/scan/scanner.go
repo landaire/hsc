@@ -10,6 +10,13 @@ import (
 	"github.com/landaire/hsc/source/token"
 )
 
+const escapeSequenceStart = '\\'
+
+var escapeSequence = map[rune]string{
+	'"':  `"`,
+	'\\': `\`,
+}
+
 type scanFunc func(s *Scanner) scanFunc
 
 type Scanner struct {
@@ -58,7 +65,7 @@ func (s *Scanner) emitRaw(tok token.Token, value string, line int64, lineOffset 
 
 	outTok.Offset = s.lastOffset
 
-	outTok.Column = int(s.lastOffset - (lineOffset + 1))
+	outTok.Column = int(s.lastOffset - lineOffset)
 
 	if outTok.Column == -1 {
 		outTok.Column = 0
@@ -77,12 +84,19 @@ func (s *Scanner) next() rune {
 	read, size, err := s.text.ReadRune()
 	if read == unicode.ReplacementChar || err != nil {
 		s.ch = 0
+		s.offset++
 	} else {
 		s.ch = read
 		s.offset += int64(size)
 	}
 
 	return s.ch
+}
+
+func (s *Scanner) skip() rune {
+	s.lastOffset++
+
+	return s.next()
 }
 
 func (s *Scanner) backup() {
@@ -136,7 +150,7 @@ func scanWhitespace(s *Scanner) scanFunc {
 			s.line++
 
 			if s.offset > 0 {
-				s.lineOffset = s.offset - 1
+				s.lineOffset = s.offset
 			}
 		}
 
@@ -174,7 +188,8 @@ func scanInsideParen(s *Scanner) scanFunc {
 	// check the first char here
 	char := s.peek()
 
-	if isIdentifier(char) {
+	// identifiers cannot start with a digit
+	if isIdentifier(char) && !isDigit(char) {
 		return scanIdentifier
 	} else if isWhitespace(char) {
 		return scanWhitespace
@@ -208,11 +223,66 @@ func scanIdentifier(s *Scanner) scanFunc {
 }
 
 func scanNumber(s *Scanner) scanFunc {
-	return nil
+	value := ""
+	tokType := token.Integer
+
+	for isDigit(s.peek()) || s.peek() == '.' {
+		c := s.next()
+
+		if c == '.' {
+			tokType = token.Decimal
+		}
+
+		value += string(c)
+	}
+
+	s.Emit(tokType, value)
+
+	return scanInsideParen
+
 }
 
 func scanString(s *Scanner) scanFunc {
-	return nil
+	s.skip()
+
+	value := ""
+	inEscapeSequence := false
+
+	for {
+		c := s.next()
+
+		if c == rune(0) {
+			s.Emit(token.Error, fmt.Sprintf("Unclosed quote"))
+
+			return nil
+		}
+
+		if inEscapeSequence {
+			if val, ok := escapeSequence[c]; ok {
+				value += val
+			} else {
+				s.Emit(token.Error, fmt.Sprintf("Unrecognized escape sequence %c%c", escapeSequenceStart, c))
+
+				return nil
+			}
+
+			inEscapeSequence = false
+
+		} else {
+			if c == escapeSequenceStart {
+				inEscapeSequence = true
+				continue
+			}
+		}
+
+		if c == '"' && !inEscapeSequence {
+			break
+		}
+
+		value += string(c)
+	}
+
+	return scanInsideParen
 }
 
 func scanCloseParen(s *Scanner) scanFunc {
