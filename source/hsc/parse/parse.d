@@ -56,7 +56,7 @@ class Parser {
     for (currTok = 0; currTok < tokens.length; currTok++) {
       tok = tokens[currTok];
 
-      if (tok.type == TokenType.Comment || tok.type == TokenType.Space) {
+      if (tok.type == TokenType.Comment) {
         continue;
       }
 

@@ -114,17 +114,7 @@ class Lexer {
 		string value = input[start..position].idup;
 		auto tokenPosition = currentPosition();
 
-		if (item == TokenType.Space) {
-			// this avoids something like <SPC><SPC><CR><LF><SPC> having
-			// an integer underflow since the last linefeed would have been marked as part of that buffer
-			if (canFind(value, '\n')) {
-				assert(start > lastLineNumIndex);
-
-				tokenPosition.line--;
-				tokenPosition.col = start - lastLineNumIndex;
-			}
-		} else if (item == TokenType.Text) {
-
+		if (item == TokenType.Text) {
 			// remove escape sequence
 			const dchar[string] escapeMap = assocArray(zip(escapes.map!(e => to!string(escape) ~ to!string(e)), escapes));
 
@@ -159,26 +149,21 @@ class Lexer {
 
 		auto items = [
 									Token(TokenType.Comment, ";foo hooo", Position(1, 0, 0)),
-									Token(TokenType.Space, "\n", Position(1, 9, 9)),
 									Token(TokenType.OpenParen, "(", Position(2, 0, 10)),
 									Token(TokenType.Identifier, "foo", Position(2, 1, 11)),
-									Token(TokenType.Space, " ", Position(2, 4, 14)),
 									Token(TokenType.OpenParen, "(", Position(2, 5, 15)),
 									Token(TokenType.Identifier, "+", Position(2, 6, 16)),
-									Token(TokenType.Space, " ", Position(2, 7, 17)),
 									Token(TokenType.OpenParen, "(", Position(2, 8, 18)),
 									Token(TokenType.Identifier, "x", Position(2, 9, 19)),
 									Token(TokenType.CloseParen, ")", Position(2, 10, 20)),
-									Token(TokenType.Space, " ", Position(2, 11, 21)),
 									Token(TokenType.Identifier, "y", Position(2, 12, 22)),
 									Token(TokenType.CloseParen, ")", Position(2, 13, 23)),
 									Token(TokenType.CloseParen, ")", Position(2, 14, 24)),
-									Token(TokenType.Space, "\r\n", Position(2, 15, 25)),
 									Token(TokenType.Comment, ";foo", Position(3, 0, 27)),
-									Token(TokenType.Space, "\r\n", Position(3, 4, 31)),
 								 ];
 
 		assert(lex.items.length == items.length);
+		std.stdio.writeln(lex.items);
 		assert(lex.items == items);
 	}
 
@@ -249,7 +234,7 @@ class Lexer {
 	/**
 	 * Positions the buffer to wherever the first non-CR/LF character is
 	 */
-	void skipEOL(out bool eolMarked) {
+	void skipEOL() {
 		log("skipping EOL");
 
 		// backup so we can consume the linebreak that whatever lex method read. this is so we can
@@ -261,8 +246,7 @@ class Lexer {
 
 		while (nextc == '\r' || nextc == '\n') {
 			if (nextc == '\n') {
-				markEOL(eolMarked);
-				eolMarked = true;
+				markEOL();
 			}
 
 			nextc = next();
@@ -274,12 +258,9 @@ class Lexer {
 		}
 	}
 
-	void markEOL(ref bool hasEolBeenMarked) {
+	void markEOL() {
 		lineNum++;
-
-		if (!hasEolBeenMarked) {
-			lastLineNumIndex = lineNumIndex;
-		}
+		lastLineNumIndex = lineNumIndex;
 
 		lineNumIndex = position;
 	}
@@ -390,17 +371,15 @@ class Lexer {
 	void lexSpace() {
 		log("lexing space");
 
-		bool eolMarked = false;
-
 		while (isSpace(peek())) {
 			auto nextc = next();
 
 			if (isEndOfLine(nextc)) {
-				skipEOL(eolMarked);
+				skipEOL();
 			}
 		}
 
-		addItem(TokenType.Space);
+		ignore();
 
 		if (parenDepth == 0) {
 			state = &lexText;
