@@ -163,7 +163,6 @@ class Lexer {
 								 ];
 
 		assert(lex.items.length == items.length);
-		std.stdio.writeln(lex.items);
 		assert(lex.items == items);
 	}
 
